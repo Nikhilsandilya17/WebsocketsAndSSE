@@ -1,0 +1,41 @@
+# Build output
+build/
+out/
+target/
+bin/
+
+# Gradle
+.gradle/
+gradle/
+
+# IDE files
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Compiled files
+*.class
+*.jar
+*.war
+*.ear
+
+# Logs and reports
+*.log
+logs/
+
+# Gradle wrapper (keep the wrapper JAR if you want it)
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# Keep gradlew scripts
+!gradlew
+!gradlew.bat
