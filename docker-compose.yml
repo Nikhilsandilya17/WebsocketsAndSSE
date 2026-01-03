@@ -14,7 +14,7 @@ services:
   # 2. phpMyAdmin (MySQL UI)
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
-    container_name: phpmyadmin
+    container_name: websockets_phpmyadmin
     platform: linux/amd64
     depends_on:
       - mysql
@@ -34,7 +34,7 @@ services:
   # 4. Redis Commander (Redis UI) - NEW
   redis-commander:
     image: rediscommander/redis-commander:latest
-    container_name: redis-ui
+    container_name: websockets_redis-ui
     environment:
       - REDIS_HOSTS=local:redis:6379
     ports:
@@ -45,7 +45,7 @@ services:
   # 5. Zookeeper
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
-    container_name: zookeeper
+    container_name: websockets_zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -55,7 +55,7 @@ services:
   # 6. Kafka Broker
   kafka:
     image: confluentinc/cp-kafka:7.6.0
-    container_name: kafka
+    container_name: websockets_kafka
     depends_on:
       - zookeeper
     ports:
@@ -71,7 +71,7 @@ services:
   # 7. Kafka UI
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
-    container_name: kafka-ui
+    container_name: websockets_kafka-ui
     ports:
       - "9090:8080"
     restart: always

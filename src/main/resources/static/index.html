@@ -11,44 +11,79 @@
         #chat-box { height: 300px; overflow-y: scroll; border: 1px solid #eee; padding: 10px; margin-bottom: 10px; }
         .msg { margin-bottom: 5px; }
         .msg b { color: #2980b9; }
+        /* Style for the typing indicator */
+        #typing-indicator { color: #888; font-style: italic; height: 20px; font-size: 0.9em; margin-bottom: 5px;}
     </style>
 </head>
 <body>
 
 <div class="box">
-    <h2>📈 Live Market (SSE + Kafka)</h2>
+    <h2>Live Market (SSE + Kafka)</h2>
     <div id="ticker">Loading...</div>
     <p>Updates via Server-Sent Events from Kafka Stream</p>
 </div>
 
 <div class="box">
-    <h2>💬 Global Chat (WS + Redis + MySQL)</h2>
+    <h2>Global Chat (WS + Redis + MySQL)</h2>
+
     <div id="chat-box"></div>
+
+    <div id="typing-indicator"></div>
+
     <input type="text" id="username" placeholder="User" style="width: 20%">
     <input type="text" id="input" placeholder="Message" style="width: 60%">
     <button onclick="send()">Send</button>
 </div>
 
 <script>
-    // 1. SSE
-    new EventSource('/stream').addEventListener('market-tick', e => {
+    // --- 1. SSE LOGIC (Market Data) ---
+    const eventSource = new EventSource('/stream');
+    eventSource.addEventListener('market-tick', e => {
         const data = JSON.parse(e.data);
         document.getElementById('ticker').innerText = `${data.symbol}: $${data.price.toFixed(2)}`;
     });
 
-    // 2. Chat
+    // --- 2. WEBSOCKET LOGIC (Chat + Typing) ---
     const socket = new SockJS('/ws-endpoint');
     const stomp = Stomp.over(socket);
 
-    // Load history
+    // Helper: Add message to chat box
+    function addMsg(msg) {
+        const div = document.getElementById('chat-box');
+        div.innerHTML += `<div class="msg"><b>${msg.sender}:</b> ${msg.content}</div>`;
+        div.scrollTop = div.scrollHeight;
+    }
+
+    // Helper: Show typing indicator
+    function showTyping(data) {
+        const myName = document.getElementById('username').value || 'Anon';
+        const div = document.getElementById('typing-indicator');
+
+        // Ignore my own typing events
+        if (data.sender === myName) return;
+
+        if (data.typing) {
+            div.innerText = `${data.sender} is typing...`;
+        } else {
+            div.innerText = ''; // Clear text
+        }
+    }
+
+    // Connect to WebSocket
+    stomp.connect({}, () => {
+        // A. Subscribe to Chat Messages
+        stomp.subscribe('/topic/chat', msg => addMsg(JSON.parse(msg.body)));
+
+        // B. Subscribe to Typing Events
+        stomp.subscribe('/topic/typing', msg => showTyping(JSON.parse(msg.body)));
+    });
+
+    // Load Chat History on Page Load
     fetch('/api/chat/history').then(r => r.json()).then(msgs => {
         msgs.reverse().forEach(addMsg);
     });
 
-    stomp.connect({}, () => {
-        stomp.subscribe('/topic/chat', msg => addMsg(JSON.parse(msg.body)));
-    });
-
+    // --- 3. SENDING LOGIC ---
     function send() {
         const user = document.getElementById('username').value || 'Anon';
         const content = document.getElementById('input').value;
@@ -58,11 +93,23 @@
         }
     }
 
-    function addMsg(msg) {
-        const div = document.getElementById('chat-box');
-        div.innerHTML += `<div class="msg"><b>${msg.sender}:</b> ${msg.content}</div>`;
-        div.scrollTop = div.scrollHeight;
-    }
+    // --- 4. TYPING DETECTION (Debounce Logic) ---
+    let typingTimer; // Timer identifier
+
+    document.getElementById('input').addEventListener('input', function() {
+        const user = document.getElementById('username').value || 'Anon';
+
+        // Clear any existing timer so we don't send "stop" while you are still typing
+        clearTimeout(typingTimer);
+
+        // Send "Started Typing" event immediately
+        stomp.send("/app/typing", {}, JSON.stringify({sender: user, typing: true}));
+
+        // Set a timer to send "Stopped Typing" after 1 second of inactivity
+        typingTimer = setTimeout(() => {
+            stomp.send("/app/typing", {}, JSON.stringify({sender: user, typing: false}));
+        }, 2000);
+    });
 </script>
 
 </body>

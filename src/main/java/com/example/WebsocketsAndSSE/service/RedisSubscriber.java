@@ -1,6 +1,8 @@
 package com.example.WebsocketsAndSSE.service;
 
+import com.example.WebsocketsAndSSE.config.RedisConfig;
 import com.example.WebsocketsAndSSE.model.ChatMessageDto;
+import com.example.WebsocketsAndSSE.model.TypingDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -27,11 +29,21 @@ public class RedisSubscriber implements MessageListener {
     @Override
     public void onMessage(@NonNull Message message, byte[] pattern) {
         try {
-            ChatMessageDto chatMessage = objectMapper.readValue(message.getBody(), ChatMessageDto.class);
-            // Push to local websocket clients on /topic/chat
-            webSocketTemplate.convertAndSend("/topic/chat", chatMessage);
+            // This will now work perfectly because the input is clean JSON
+            String channel = new String(message.getChannel());
+            String body = new String(message.getBody());
+            if(RedisConfig.TYPING_TOPIC.equals(channel)){
+                // Handle typing indicator
+                TypingDto typingDto = objectMapper.readValue(body, TypingDto.class);
+                webSocketTemplate.convertAndSend("/topic/typing", body);
+            }
+            else {
+                // Handle chat message
+                ChatMessageDto chatMessageDto = objectMapper.readValue(body, ChatMessageDto.class);
+                webSocketTemplate.convertAndSend("/topic/chat", chatMessageDto);
+            }
         } catch (Exception e) {
-            log.error("Failed to process redis message", e);
+            log.error("Error parsing redis message", e);
         }
     }
 
